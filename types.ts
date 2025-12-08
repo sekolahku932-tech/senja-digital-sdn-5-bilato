@@ -55,6 +55,8 @@ export interface Submission {
   taskFileUrl?: string; // Uploaded task evidence
   teacherNotes?: string;
   isApproved: boolean; // For certificate
+  // Added approvalStatus to match usage in storageService
+  approvalStatus?: string;
   submittedAt: string;
 }
 

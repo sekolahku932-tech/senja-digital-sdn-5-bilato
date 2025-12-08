@@ -100,8 +100,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       {user.role === Role.ADMIN && (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mt-8">
             <h3 className="text-lg font-bold mb-4">Distribusi Siswa Per Kelas</h3>
-            {/* Added explicit height and minHeight to prevent ResponsiveContainer width/height -1 error */}
-            <div style={{ width: '100%', height: 300, minHeight: 300 }}>
+            {/* Explicit sizing for Recharts container */}
+            <div className="w-full h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" />

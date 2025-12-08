@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Material, Submission } from '../types';
 import { getMaterials, getSubmissions, saveSubmission, getCertBackground } from '../services/storageService';
-import { BookOpen, CheckCircle, Upload, ArrowLeft, Award, Loader, Video, FileText, ExternalLink } from 'lucide-react';
+import { BookOpen, CheckCircle, Upload, ArrowLeft, Award, Loader, Video, FileText, ExternalLink, Clock, MessageSquare, AlertCircle } from 'lucide-react';
 
 interface Props { user: User; }
 
@@ -70,7 +70,10 @@ const StudentReading: React.FC<Props> = ({ user }) => {
           answers: (selectedMaterial.questions || []).map(q => ({ questionId: q.id, answer: answers[q.id] || '' })),
           taskText: answers['task_text'] || '',
           taskFileUrl: taskFile,
-          isApproved: false, // Must wait for teacher approval
+          
+          // STRICT: Selalu False saat dikirim siswa. Hanya Guru yang bisa mengubah jadi True.
+          isApproved: false, 
+          
           submittedAt: new Date().toISOString()
       };
       
@@ -85,7 +88,6 @@ const StudentReading: React.FC<Props> = ({ user }) => {
       setProcessing(false);
       setShowSuccess(true);
       
-      // Auto close success after 3 seconds
       setTimeout(() => {
         setShowSuccess(false);
         setView('list');
@@ -225,31 +227,45 @@ const StudentReading: React.FC<Props> = ({ user }) => {
                                 )}
                             </div>
                             <div className="p-4">
-                                <h3 className="font-bold text-lg">{m.title}</h3>
+                                <h3 className="font-bold text-lg leading-tight mb-2">{m.title}</h3>
+                                
                                 {sub ? (
-                                    <div className="mt-3 flex items-center gap-2 text-sm">
-                                        {sub.isApproved ? (
-                                            <span className="text-green-600 flex items-center gap-1 font-bold"><Award size={16}/> Lulus</span>
-                                        ) : (
-                                            <span className="text-yellow-600 flex items-center gap-1">Menunggu Dinilai</span>
-                                        )}
+                                    <div className="mt-2 space-y-2">
+                                        {/* Status Badge */}
+                                        <div className={`text-xs px-2 py-1.5 rounded flex items-center gap-1.5 font-bold ${
+                                            sub.isApproved 
+                                                ? 'bg-green-100 text-green-700' 
+                                                : sub.teacherNotes 
+                                                    ? 'bg-blue-100 text-blue-700'
+                                                    : 'bg-yellow-100 text-yellow-700'
+                                        }`}>
+                                            {sub.isApproved ? (
+                                                <><CheckCircle size={14}/> TELAH DISETUJUI</>
+                                            ) : sub.teacherNotes ? (
+                                                <><MessageSquare size={14}/> TELAH DIPERIKSA</>
+                                            ) : (
+                                                <><Clock size={14}/> MENUNGGU VERIFIKASI</>
+                                            )}
+                                        </div>
+
+                                        {/* Certificate Link (Only if Approved) */}
                                         {sub.isApproved && (
                                             <button 
-                                                onClick={() => downloadCert(sub, m.title)} 
+                                                onClick={(e) => { e.stopPropagation(); downloadCert(sub, m.title); }} 
                                                 disabled={generatingCert}
-                                                className="text-blue-600 underline text-xs ml-auto flex items-center gap-1"
+                                                className="text-blue-600 font-bold text-xs flex items-center gap-1 hover:underline"
                                             >
-                                                {generatingCert ? 'Memuat...' : 'Unduh Sertifikat'}
+                                                <Award size={14}/> {generatingCert ? 'Memproses...' : 'Unduh Sertifikat'}
                                             </button>
                                         )}
                                     </div>
                                 ) : (
-                                    <span className="mt-3 inline-block text-xs bg-gray-200 px-2 py-1 rounded">Belum Dibaca</span>
+                                    <span className="mt-2 inline-block text-xs bg-gray-100 px-2 py-1 rounded text-gray-500 border">Belum Dikerjakan</span>
                                 )}
                             </div>
                             <div className="p-4 border-t bg-gray-50">
-                                <button onClick={() => handleRead(m)} className="w-full bg-senja-600 text-white py-2 rounded font-medium hover:bg-senja-700">
-                                    {sub ? 'Lihat Jawaban' : 'Baca & Kerjakan'}
+                                <button onClick={() => handleRead(m)} className={`w-full py-2 rounded font-medium transition ${sub ? 'bg-white border border-senja-600 text-senja-600 hover:bg-senja-50' : 'bg-senja-600 text-white hover:bg-senja-700'}`}>
+                                    {sub ? 'Lihat Jawaban / Status' : 'Baca & Kerjakan'}
                                 </button>
                             </div>
                         </div>
@@ -263,25 +279,27 @@ const StudentReading: React.FC<Props> = ({ user }) => {
 
   return (
       <div className="max-w-4xl mx-auto space-y-6 relative">
+          {/* Header & Back Button */}
           <button onClick={() => setView('list')} className="flex items-center gap-2 text-gray-500 hover:text-senja-600">
               <ArrowLeft size={20} /> Kembali ke Daftar
           </button>
-          
+
           {showSuccess && (
-              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative flex items-center gap-2 animate-bounce">
-                  <CheckCircle size={24} />
+              <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded relative flex items-center gap-2 animate-bounce">
+                  <Clock size={24} />
                   <div>
-                      <strong className="font-bold">Berhasil! </strong>
-                      <span className="block sm:inline">Jawabanmu sudah terkirim ke Bapak/Ibu Guru.</span>
+                      <strong className="font-bold">Terkirim! </strong>
+                      <span className="block sm:inline">Jawabanmu sedang diperiksa Guru. Cek lagi nanti untuk Sertifikat.</span>
                   </div>
               </div>
           )}
 
+          {/* Material Viewer */}
           {selectedMaterial && (
-              <div className="bg-white rounded-xl shadow p-8">
+            <div className="bg-white rounded-xl shadow p-8">
                   <h1 className="text-3xl font-bold text-gray-900 mb-6">{selectedMaterial.title}</h1>
                   
-                  {/* MEDIA VIEWER AREA (REPLACING TEXT CONTENT) */}
+                  {/* MEDIA VIEWER AREA */}
                   <div className="w-full mb-8 bg-gray-50 border rounded-xl overflow-hidden min-h-[300px] flex items-center justify-center relative bg-slate-100">
                         {selectedMaterial.mediaType === 'image' && selectedMaterial.mediaUrl && (
                             <img src={selectedMaterial.mediaUrl} className="max-w-full h-auto" alt="Materi" />
@@ -326,12 +344,12 @@ const StudentReading: React.FC<Props> = ({ user }) => {
                         )}
                   </div>
 
-                  {/* MODIFIED: Link Button Section */}
+                  {/* Link Button Section */}
                   {selectedMaterial.mediaUrl && selectedMaterial.mediaType !== 'none' && (
                       <div className="mb-8 bg-orange-50 border-2 border-orange-200 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-4 text-center">
                           <div>
                               <h4 className="font-bold text-gray-800 text-lg">Materi Pembelajaran</h4>
-                              <p className="text-gray-600">Jika dokumen di atas tidak muncul (Butuh Izin Akses), klik tombol di bawah ini.</p>
+                              <p className="text-gray-600">Klik tombol di bawah ini untuk membuka materi lengkap dari Guru.</p>
                           </div>
                           <a 
                             href={selectedMaterial.mediaUrl} 
@@ -397,7 +415,7 @@ const StudentReading: React.FC<Props> = ({ user }) => {
                                               <label className="block text-sm mb-1 font-bold">Pilihan 2: Upload File / Foto</label>
                                               {!submission && (
                                                 <input 
-                                                    type="file"
+                                                    type="file" 
                                                     accept="image/*,application/pdf"
                                                     onChange={(e) => {
                                                         const file = e.target.files?.[0];
@@ -428,38 +446,64 @@ const StudentReading: React.FC<Props> = ({ user }) => {
                           
                           {submission?.teacherNotes && (
                               <div className="bg-yellow-50 p-4 rounded border border-yellow-200">
-                                  <h4 className="font-bold text-yellow-800">Catatan Guru:</h4>
-                                  <p className="text-yellow-900">{submission.teacherNotes}</p>
+                                  <h4 className="font-bold text-yellow-800 flex items-center gap-2">
+                                      <MessageSquare size={18}/> Catatan Guru:
+                                  </h4>
+                                  <p className="text-yellow-900 mt-1">{submission.teacherNotes}</p>
+                              </div>
+                          )}
+
+                          {/* SUBMISSION STATUS AREA */}
+                          {submission && (
+                              <div className={`text-center p-6 rounded-xl border-2 ${
+                                  submission.isApproved 
+                                    ? 'bg-green-50 border-green-200' 
+                                    : submission.teacherNotes
+                                        ? 'bg-blue-50 border-blue-200'
+                                        : 'bg-yellow-50 border-yellow-200'
+                              }`}>
+                                  {submission.isApproved ? (
+                                      <div className="flex flex-col items-center gap-2 text-green-800">
+                                          <CheckCircle size={48} className="text-green-600"/>
+                                          <h3 className="text-xl font-bold">SELAMAT! TELAH DISETUJUI</h3>
+                                          <p>Kamu telah menyelesaikan materi ini dengan baik.</p>
+                                          
+                                          <button 
+                                            type="button" 
+                                            onClick={() => downloadCert(submission, selectedMaterial.title)} 
+                                            disabled={generatingCert}
+                                            className="mt-4 bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow hover:bg-green-700 transition flex items-center gap-2 animate-pulse"
+                                          >
+                                              {generatingCert ? <Loader className="animate-spin"/> : <Award size={20}/>} 
+                                              {generatingCert ? 'Memproses...' : 'Unduh Sertifikat'}
+                                          </button>
+                                      </div>
+                                  ) : submission.teacherNotes ? (
+                                      <div className="flex flex-col items-center gap-2 text-blue-800">
+                                          <MessageSquare size={48} className="text-blue-600"/>
+                                          <h3 className="text-xl font-bold">TELAH DIPERIKSA</h3>
+                                          <p>Guru telah memberikan catatan. Silakan cek catatan di atas.</p>
+                                          <p className="text-sm bg-white/50 px-2 py-1 rounded">Sertifikat belum tersedia (Belum disetujui).</p>
+                                      </div>
+                                  ) : (
+                                      <div className="flex flex-col items-center gap-2 text-yellow-800">
+                                          <Clock size={48} className="text-yellow-600"/>
+                                          <h3 className="text-xl font-bold">MENUNGGU VERIFIKASI GURU</h3>
+                                          <p>Jawabanmu sudah dikirim dan sedang diperiksa oleh Bapak/Ibu Guru.</p>
+                                          <p className="text-sm bg-white/50 px-2 py-1 rounded">Kembali lagi nanti jika status sudah "TELAH DISETUJUI" untuk mengambil sertifikat.</p>
+                                      </div>
+                                  )}
                               </div>
                           )}
 
                           {!submission && (
-                            <button type="submit" disabled={processing || showSuccess} className="w-full bg-senja-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-senja-700 transition flex items-center justify-center gap-2">
-                                {processing ? <Loader className="animate-spin" size={24}/> : 'Kirim Jawaban'}
+                            <button type="submit" disabled={processing || showSuccess} className="w-full bg-senja-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-senja-700 transition flex items-center justify-center gap-2 shadow-lg">
+                                {processing ? <Loader className="animate-spin" size={24}/> : 'Kirim Jawaban ke Guru'}
                             </button>
-                          )}
-                          
-                          {submission && !submission.isApproved && (
-                              <div className="text-center p-4 bg-gray-100 rounded text-gray-600 border border-gray-300">
-                                  <p className="font-bold">Jawaban sudah dikirim.</p>
-                                  <p className="text-sm">Menunggu pemeriksaan dan persetujuan Guru untuk mendapatkan sertifikat.</p>
-                              </div>
-                          )}
-                          
-                          {submission?.isApproved && (
-                              <button 
-                                type="button" 
-                                onClick={() => downloadCert(submission, selectedMaterial.title)} 
-                                disabled={generatingCert}
-                                className="w-full bg-green-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-green-700 transition flex justify-center items-center gap-2 animate-pulse"
-                              >
-                                  {generatingCert ? <Loader className="animate-spin" size={24}/> : <Award size={24}/>}
-                                  {generatingCert ? 'Sedang Membuat Sertifikat...' : 'Unduh Sertifikat'}
-                              </button>
                           )}
                       </div>
                   </form>
-              </div>
+            </div>
           )}
       </div>
   );

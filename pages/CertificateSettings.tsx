@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Role } from '../types';
-import { saveCertBackground, getCertBackground } from '../services/storageService';
-import { Save, Check, Loader, AlertTriangle, Image as ImageIcon, Info } from 'lucide-react';
+import { saveCertBackground, getCertBackground, resetAllSubmissions } from '../services/storageService'; // Added resetAllSubmissions
+import { Save, Check, Loader, AlertTriangle, Image as ImageIcon, Info, Trash2 } from 'lucide-react'; // Added Trash2
 
 interface Props { user: User; }
 
@@ -46,11 +46,9 @@ const CertificateSettings: React.FC<Props> = ({ user }) => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 let currentWidth = 800; 
-                let currentQuality = 0.85; // Kualitas lebih tinggi startnya
+                let currentQuality = 0.85; 
                 let result = smartCompress(img, currentQuality, currentWidth);
                 
-                // Batas Karakter Ditingkatkan karena ada fitur Chunking (Pecah Data)
-                // 250,000 chars cukup untuk kualitas HD JPEG
                 const MAX_CHARS = 250000; 
 
                 let attempts = 0;
@@ -61,7 +59,6 @@ const CertificateSettings: React.FC<Props> = ({ user }) => {
                     
                     result = smartCompress(img, currentQuality, currentWidth);
                     attempts++;
-                    console.log(`Optimizing: Length ${result.length}, Width ${Math.round(currentWidth)}, Q ${currentQuality.toFixed(2)}`);
                 }
 
                 resolve(result);
@@ -110,10 +107,30 @@ const CertificateSettings: React.FC<Props> = ({ user }) => {
     }
   };
 
+  // --- Reset Data Handler ---
+  const handleResetData = async () => {
+      if (confirm("PERINGATAN KERAS:\n\nSemua data jawaban siswa (Refleksi & Tugas) akan DIHAPUS PERMANEN dari database.\nData yang sudah dihapus tidak bisa dikembalikan.\n\nApakah Anda yakin ingin mereset data?")) {
+          setSaving(true);
+          try {
+              if (typeof resetAllSubmissions === 'function') {
+                  await resetAllSubmissions();
+                  alert("Data berhasil direset. Sistem sekarang bersih.");
+                  window.location.reload(); 
+              } else {
+                  alert("Fungsi reset belum tersedia di sistem. Mohon update storageService.");
+              }
+          } catch (e) {
+              alert("Gagal mereset data.");
+          } finally {
+              setSaving(false);
+          }
+      }
+  };
+
   if (user.role !== Role.ADMIN) return <div>Akses Ditolak</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-20">
         <div>
             <h2 className="text-2xl font-bold mb-4">Pengaturan Sertifikat</h2>
             
@@ -183,6 +200,29 @@ const CertificateSettings: React.FC<Props> = ({ user }) => {
                         </span>
                     )}
                 </div>
+            </div>
+        </div>
+
+        {/* --- DANGER ZONE SECTION (Reset Data) --- */}
+        <div className="pt-8 border-t-2 border-gray-200 mt-12 mb-12">
+            <h2 className="text-2xl font-bold mb-4 text-red-600 flex items-center gap-2">
+                <AlertTriangle /> Zona Bahaya (Reset Data)
+            </h2>
+            <div className="bg-red-50 border border-red-200 p-6 rounded-xl shadow-sm max-w-2xl">
+                <h3 className="font-bold text-red-800 mb-2">Hapus Semua Data Jawaban Siswa</h3>
+                <p className="text-sm text-red-700 mb-4 leading-relaxed">
+                    Tindakan ini akan <strong>MENGHAPUS SELURUH</strong> data pengumpulan tugas, jawaban refleksi, dan status kelulusan siswa dari Database. 
+                    Gunakan fitur ini jika terjadi error pada status (misal: otomatis lulus) atau jika ingin memulai semester baru.
+                    Data Siswa dan Bahan Bacaan <strong>TIDAK</strong> akan terhapus.
+                </p>
+                <button 
+                    onClick={handleResetData}
+                    disabled={saving}
+                    className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 flex items-center gap-2 font-bold shadow transition transform hover:scale-105"
+                >
+                    {saving ? <Loader className="animate-spin" size={20}/> : <Trash2 size={20}/>}
+                    {saving ? 'Sedang Menghapus...' : 'HAPUS SEMUA DATA JAWABAN'}
+                </button>
             </div>
         </div>
     </div>

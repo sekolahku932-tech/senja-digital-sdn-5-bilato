@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Role, Submission, Material } from '../types';
 import { getMaterials, getSubmissions, saveSubmission, deleteSubmission } from '../services/storageService';
-import { Check, X, MessageSquare, ExternalLink, Loader, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Check, X, MessageSquare, ExternalLink, Loader, RefreshCw, AlertTriangle, Printer } from 'lucide-react';
 
 interface Props { user: User; }
 
@@ -14,7 +14,6 @@ const Grading: React.FC<Props> = ({ user }) => {
   const [selectedSub, setSelectedSub] = useState<Submission | null>(null);
   const [notes, setNotes] = useState('');
   
-  // Reset Confirmation State
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
@@ -29,7 +28,6 @@ const Grading: React.FC<Props> = ({ user }) => {
     setLoading(false);
   };
 
-  // Filter submissions based on role/class
   const filteredSubmissions = allSubmissions.filter(s => 
     (user.role === Role.TEACHER && s.classGrade === user.classGrade) ||
     (user.role === Role.ADMIN)
@@ -55,16 +53,111 @@ const Grading: React.FC<Props> = ({ user }) => {
   const handleReset = async () => {
       if(!selectedSub) return;
       setProcessing(true);
-      
-      // Hapus submission dari database
       await deleteSubmission(selectedSub.id);
-      
       setSelectedSub(null);
       setNotes('');
       setShowResetConfirm(false);
-      
       await loadData();
       setProcessing(false);
+  };
+
+  // --- Print Functionality ---
+  const handlePrint = () => {
+      if (!selectedSub) return;
+
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+
+      const materialTitle = getMaterialTitle(selectedSub.materialId);
+      const submittedDate = new Date(selectedSub.submittedAt).toLocaleDateString('id-ID', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+
+      // Determine Status Text
+      let statusText = 'MENUNGGU VERIFIKASI';
+      if (selectedSub.isApproved) statusText = 'TELAH DISETUJUI';
+      else if (selectedSub.teacherNotes) statusText = 'TELAH DIPERIKSA';
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Lembar Jawaban - ${selectedSub.studentName}</title>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; line-height: 1.6; }
+                .header { border-bottom: 3px solid #ea580c; padding-bottom: 20px; margin-bottom: 30px; }
+                .header h1 { margin: 0; color: #ea580c; font-size: 24px; }
+                .header h2 { margin: 5px 0 0; font-size: 16px; color: #555; }
+                .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 30px; background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+                .meta-item strong { display: inline-block; width: 100px; color: #666; }
+                .section { margin-bottom: 30px; }
+                .section-title { font-size: 18px; font-weight: bold; color: #1e1b4b; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 15px; }
+                .qa-item { margin-bottom: 15px; page-break-inside: avoid; }
+                .question { font-weight: bold; margin-bottom: 5px; color: #444; }
+                .answer { background: #f0fdf4; border-left: 4px solid #16a34a; padding: 10px 15px; border-radius: 0 4px 4px 0; }
+                .task-box { background: #eff6ff; border: 1px solid #bfdbfe; padding: 15px; border-radius: 8px; white-space: pre-wrap; }
+                .notes { background: #fffbeb; border: 1px solid #fcd34d; padding: 15px; border-radius: 8px; margin-top: 20px; }
+                .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+                @media print {
+                    body { -webkit-print-color-adjust: exact; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>SENJA DIGITAL - SD NEGERI 5 BILATO</h1>
+                <h2>Laporan Hasil Literasi Siswa</h2>
+            </div>
+
+            <div class="meta-grid">
+                <div class="meta-item"><strong>Nama:</strong> ${selectedSub.studentName}</div>
+                <div class="meta-item"><strong>Kelas:</strong> ${selectedSub.classGrade}</div>
+                <div class="meta-item"><strong>Materi:</strong> ${materialTitle}</div>
+                <div class="meta-item"><strong>Waktu:</strong> ${submittedDate}</div>
+                <div class="meta-item"><strong>Status:</strong> ${statusText}</div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">A. Refleksi</div>
+                ${selectedSub.answers.map((ans, i) => `
+                    <div class="qa-item">
+                        <div class="question">Pertanyaan ${i + 1}:</div>
+                        <div class="answer">${ans.answer || '-'}</div>
+                    </div>
+                `).join('')}
+            </div>
+
+            <div class="section">
+                <div class="section-title">B. Tugas</div>
+                <div class="qa-item">
+                    <div class="question">Jawaban Teks:</div>
+                    <div class="task-box">${selectedSub.taskText || '(Tidak ada jawaban teks)'}</div>
+                </div>
+                ${selectedSub.taskFileUrl ? `<p><em>* Siswa melampirkan file/foto (Cek di aplikasi).</em></p>` : ''}
+            </div>
+
+            ${selectedSub.teacherNotes ? `
+                <div class="section">
+                    <div class="section-title">Catatan Guru</div>
+                    <div class="notes">
+                        ${selectedSub.teacherNotes}
+                    </div>
+                </div>
+            ` : ''}
+
+            <div class="footer">
+                Dicetak melalui Aplikasi Senja Digital | SD Negeri 5 Bilato
+            </div>
+
+            <script>
+                window.onload = function() { window.print(); }
+            </script>
+        </body>
+        </html>
+      `;
+
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
   };
 
   if (loading) return <div className="p-10 text-center text-gray-500"><Loader className="animate-spin inline mr-2"/> Memuat data nilai...</div>;
@@ -88,8 +181,16 @@ const Grading: React.FC<Props> = ({ user }) => {
                                   <p className="font-bold text-gray-800">{sub.studentName}</p>
                                   <p className="text-xs text-gray-500">{getMaterialTitle(sub.materialId)}</p>
                               </div>
-                              <span className={`text-xs px-2 py-1 rounded ${sub.isApproved ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                  {sub.isApproved ? 'Lulus' : 'Menunggu'}
+                              
+                              {/* Status Badge Update */}
+                              <span className={`text-xs px-2 py-1 rounded ${
+                                  sub.isApproved 
+                                    ? 'bg-green-100 text-green-700' 
+                                    : sub.teacherNotes
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : 'bg-yellow-100 text-yellow-700'
+                              }`}>
+                                  {sub.isApproved ? 'Telah Disetujui' : (sub.teacherNotes ? 'Telah Diperiksa' : 'Menunggu')}
                               </span>
                           </div>
                       </div>
@@ -102,19 +203,28 @@ const Grading: React.FC<Props> = ({ user }) => {
           <div className="bg-white rounded-xl shadow-sm p-6 relative">
               {selectedSub ? (
                   <div className="space-y-6">
-                      <div className="border-b pb-4 flex justify-between items-start">
+                      <div className="border-b pb-4 flex flex-col md:flex-row justify-between items-start gap-4">
                           <div>
                               <h3 className="text-xl font-bold">{selectedSub.studentName}</h3>
                               <p className="text-gray-500">Materi: {getMaterialTitle(selectedSub.materialId)}</p>
                           </div>
                           
-                          <button 
-                            onClick={() => setShowResetConfirm(true)}
-                            className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded-full hover:bg-red-200 flex items-center gap-1 font-bold"
-                            disabled={processing}
-                          >
-                            <RefreshCw size={14} /> Reset Jawaban
-                          </button>
+                          <div className="flex gap-2">
+                             <button 
+                                onClick={handlePrint}
+                                className="text-xs bg-blue-100 text-blue-600 px-3 py-1.5 rounded-full hover:bg-blue-200 flex items-center gap-1 font-bold transition"
+                                title="Cetak Jawaban"
+                             >
+                                <Printer size={14} /> Cetak
+                             </button>
+                             <button 
+                                onClick={() => setShowResetConfirm(true)}
+                                className="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded-full hover:bg-red-200 flex items-center gap-1 font-bold transition"
+                                disabled={processing}
+                             >
+                                <RefreshCw size={14} /> Reset
+                             </button>
+                          </div>
                       </div>
 
                       <div className="space-y-4">
