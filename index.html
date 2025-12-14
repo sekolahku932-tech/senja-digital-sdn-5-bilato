@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="Ariyanto Rahman" />
     <title>SENJA DIGITAL SD NEGERI 5 BILATO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -11,42 +12,41 @@
           extend: {
             colors: {
               senja: {
-                50: '#fff7ed',
-                100: '#ffedd5',
-                200: '#fed7aa',
-                300: '#fdba74',
-                400: '#fb923c',
-                500: '#f97316', // Primary Orange
-                600: '#ea580c',
-                700: '#c2410c',
-                800: '#9a3412',
-                900: '#7c2d12',
-              },
-              midnight: {
-                800: '#1e1b4b', // Deep Purple/Blue for contrast
-                900: '#0f172a',
+                primary: '#F97316', // Orange
+                secondary: '#9333EA', // Purple
+                dark: '#4C1D95',
+                light: '#FFEDD5'
               }
             }
           }
         }
       }
     </script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+      body {
+        font-family: 'Poppins', sans-serif;
+      }
+      .senja-gradient {
+        background: linear-gradient(135deg, #F97316 0%, #DB2777 50%, #7C3AED 100%);
+      }
+    </style>
   <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
-    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.1",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
-    "recharts": "https://aistudiocdn.com/recharts@^3.5.1"
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.10.1",
+    "firebase/": "https://esm.sh/firebase@^12.6.0/"
   }
 }
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-gray-50 text-slate-800 font-sans antialiased">
+  <body class="bg-gray-50 text-gray-800">
     <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

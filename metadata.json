@@ -1,5 +1,8 @@
 {
   "name": "SENJA DIGITAL SD NEGERI 5 BILATO",
-  "description": "Aplikasi Literasi Digital Interaktif untuk manajemen bahan bacaan, siswa, dan refleksi dengan integrasi AI.",
-  "requestFramePermissions": []
+  "description": "Aplikasi literasi digital interaktif untuk SD Negeri 5 Bilato dengan fitur manajemen siswa, bahan bacaan, dan penilaian berbasis AI.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
 }

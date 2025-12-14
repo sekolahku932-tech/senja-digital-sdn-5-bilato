@@ -1,215 +1,359 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { User, Role, Student } from './types';
-import { getUsers, getStudents, initStorage } from './services/storageService';
+import { Layout } from './components/Layout';
+import { StudentManagement } from './components/StudentManagement';
+import { MaterialManagement } from './components/MaterialManagement';
+import { StudentReading } from './components/StudentReading';
+import { Grading } from './components/Grading';
+import { UserManagement } from './components/UserManagement';
+import { Settings } from './components/Settings';
+import { User, Student, Role } from './types';
+import { getUserByUsername, getStudentByNISN, seedDatabase, getStudents } from './services/firebase';
+import { Shield, Book, GraduationCap, ArrowRight, Loader2, Database, AlertCircle, CheckCircle, Users } from 'lucide-react';
 
-import Layout from './components/Layout';
-import Dashboard from './components/Dashboard';
+// --- Login Pages ---
 
-// Pages
-import StudentManagement from './pages/StudentManagement';
-import MaterialManagement from './pages/MaterialManagement';
-import StudentReading from './pages/StudentReading';
-import Grading from './pages/Grading';
-import UserManagement from './pages/UserManagement';
-import CertificateSettings from './pages/CertificateSettings';
+const LandingPage = () => {
+  const navigate = useNavigate();
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [status, setStatus] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
-// Login Components
-const LoginSelection = () => {
-    const navigate = useNavigate();
-    
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-senja-500 to-midnight-900 flex flex-col items-center justify-center p-4">
-            <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-4xl w-full text-center">
-                <div className="mb-8">
-                    <h1 className="text-4xl font-extrabold text-senja-600 tracking-tight">SENJA DIGITAL</h1>
-                    <h2 className="text-xl text-gray-600 mt-2 font-semibold">SD NEGERI 5 BILATO</h2>
-                    <p className="text-gray-400 mt-4">Silakan pilih akses masuk Anda</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <button 
-                        onClick={() => navigate('/login/admin')}
-                        className="group relative p-6 border-2 border-gray-100 rounded-xl hover:border-senja-400 hover:shadow-lg transition-all"
-                    >
-                        <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                        </div>
-                        <h3 className="text-lg font-bold text-gray-800">Admin</h3>
-                        <p className="text-sm text-gray-500 mt-1">Pengelola Sistem</p>
-                    </button>
-
-                    <button 
-                        onClick={() => navigate('/login/teacher')}
-                        className="group relative p-6 border-2 border-gray-100 rounded-xl hover:border-senja-400 hover:shadow-lg transition-all"
-                    >
-                        <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-                        </div>
-                        <h3 className="text-lg font-bold text-gray-800">Wali Kelas</h3>
-                        <p className="text-sm text-gray-500 mt-1">Guru Kelas 1-6</p>
-                    </button>
-
-                    <button 
-                         onClick={() => navigate('/login/student')}
-                         className="group relative p-6 border-2 border-gray-100 rounded-xl hover:border-senja-400 hover:shadow-lg transition-all"
-                    >
-                        <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
-                        </div>
-                        <h3 className="text-lg font-bold text-gray-800">Siswa</h3>
-                        <p className="text-sm text-gray-500 mt-1">Masuk dengan NISN</p>
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const LoginForm = ({ role, onLogin }: { role: Role, onLogin: (u: User) => void }) => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const navigate = useNavigate();
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setIsLoading(true);
-
-        try {
-            if (role === Role.STUDENT) {
-                // Student Login Logic (NISN Only)
-                const students = await getStudents();
-                const student = students.find(s => s.nisn === username);
-                if (student) {
-                    onLogin({
-                        id: student.nisn,
-                        username: student.nisn,
-                        name: student.name,
-                        role: Role.STUDENT,
-                        classGrade: student.classGrade
-                    });
-                } else {
-                    setError('NISN tidak ditemukan.');
-                }
-            } else {
-                // Admin/Teacher Login
-                const users = await getUsers();
-                const user = users.find(u => u.username === username && u.password === password && u.role === role);
-                if (user) {
-                    onLogin(user);
-                } else {
-                    setError('Username atau password salah.');
-                }
-            }
-        } catch (err) {
-            setError('Gagal terhubung ke database.');
-            console.error(err);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const roleLabel = role === Role.ADMIN ? 'Admin' : role === Role.TEACHER ? 'Wali Kelas' : 'Siswa';
-
-    return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-            <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-                <button onClick={() => navigate('/')} className="text-sm text-gray-500 hover:text-senja-500 mb-4 flex items-center">
-                    &larr; Kembali
-                </button>
-                <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Login {roleLabel}</h2>
-                {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm">{error}</div>}
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            {role === Role.STUDENT ? 'NISN' : 'Username'}
-                        </label>
-                        <input 
-                            type="text" 
-                            required 
-                            className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-senja-500 outline-none"
-                            value={username}
-                            onChange={e => setUsername(e.target.value)}
-                        />
-                    </div>
-                    {role !== Role.STUDENT && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                            <input 
-                                type="password" 
-                                required 
-                                className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-senja-500 outline-none"
-                                value={password}
-                                onChange={e => setPassword(e.target.value)}
-                            />
-                        </div>
-                    )}
-                    <button 
-                        type="submit" 
-                        disabled={isLoading}
-                        className={`w-full bg-senja-600 text-white py-2 rounded hover:bg-senja-700 transition font-bold ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                        {isLoading ? 'Memuat...' : 'Masuk'}
-                    </button>
-                </form>
-            </div>
-        </div>
-    );
-};
-
-const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
-
-  // Check session on load
-  useEffect(() => {
-      initStorage(); // Ensure defaults
-      const savedUser = localStorage.getItem('senja_session');
-      if (savedUser) setUser(JSON.parse(savedUser));
-  }, []);
-
-  const handleLogin = (u: User) => {
-      setUser(u);
-      localStorage.setItem('senja_session', JSON.stringify(u));
-  };
-
-  const handleLogout = () => {
-      setUser(null);
-      localStorage.removeItem('senja_session');
+  const handleSetup = async () => {
+    // Removed window.confirm to prevent sandbox blocking
+    setIsSeeding(true);
+    setStatus(null);
+    try {
+        const msg = await seedDatabase();
+        setStatus({type: 'success', text: msg});
+    } catch (e: any) {
+        setStatus({type: 'error', text: e.message || "Gagal setup database."});
+    } finally {
+        setIsSeeding(false);
+    }
   };
 
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={!user ? <LoginSelection /> : <Navigate to="/app/dashboard" />} />
-        
-        <Route path="/login/admin" element={!user ? <LoginForm role={Role.ADMIN} onLogin={handleLogin} /> : <Navigate to="/app/dashboard" />} />
-        <Route path="/login/teacher" element={!user ? <LoginForm role={Role.TEACHER} onLogin={handleLogin} /> : <Navigate to="/app/dashboard" />} />
-        <Route path="/login/student" element={!user ? <LoginForm role={Role.STUDENT} onLogin={handleLogin} /> : <Navigate to="/app/dashboard" />} />
+    <div className="min-h-screen senja-gradient flex flex-col items-center justify-center p-4 text-white">
+      <div className="text-center mb-12 animate-in fade-in slide-in-from-top duration-700">
+        <h1 className="text-4xl md:text-5xl font-bold mb-4 drop-shadow-md tracking-tight">SENJA DIGITAL</h1>
+        <p className="text-xl opacity-90 font-light tracking-widest border-b-2 border-white/20 inline-block pb-1">SD NEGERI 5 BILATO</p>
+      </div>
 
-        <Route path="/app/*" element={
-            user ? (
-                <Layout user={user} onLogout={handleLogout}>
-                    <Routes>
-                        <Route path="dashboard" element={<Dashboard user={user} />} />
-                        <Route path="students" element={<StudentManagement user={user} />} />
-                        <Route path="materials" element={<MaterialManagement user={user} />} />
-                        <Route path="read" element={<StudentReading user={user} />} />
-                        <Route path="grading" element={<Grading user={user} />} />
-                        <Route path="users" element={<UserManagement user={user} />} />
-                        <Route path="settings" element={<CertificateSettings user={user} />} />
-                        <Route path="*" element={<Navigate to="dashboard" />} />
-                    </Routes>
-                </Layout>
-            ) : (
-                <Navigate to="/" />
-            )
-        } />
-      </Routes>
-    </HashRouter>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl animate-in zoom-in duration-500 delay-100">
+        <button onClick={() => navigate('/login/admin')} className="bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-2xl hover:bg-white/20 transition transform hover:-translate-y-2 group flex flex-col items-center">
+          <div className="p-4 bg-orange-500/20 rounded-full mb-4 group-hover:bg-orange-500/40 transition">
+             <Shield className="w-12 h-12 text-orange-100" />
+          </div>
+          <h3 className="text-2xl font-bold mb-2">Admin</h3>
+          <p className="opacity-70 text-sm text-center">Masuk sebagai Administrator Sekolah</p>
+        </button>
+
+        <button onClick={() => navigate('/login/teacher')} className="bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-2xl hover:bg-white/20 transition transform hover:-translate-y-2 group flex flex-col items-center">
+           <div className="p-4 bg-purple-500/20 rounded-full mb-4 group-hover:bg-purple-500/40 transition">
+             <Book className="w-12 h-12 text-purple-100" />
+          </div>
+          <h3 className="text-2xl font-bold mb-2">Wali Kelas</h3>
+          <p className="opacity-70 text-sm text-center">Masuk untuk Kelola Kelas & Materi</p>
+        </button>
+
+        <button onClick={() => navigate('/login/student')} className="bg-white text-senja-primary p-8 rounded-2xl shadow-xl hover:shadow-2xl transition transform hover:-translate-y-2 group flex flex-col items-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-2 bg-orange-100 rounded-bl-xl text-xs font-bold text-orange-600">
+            SISWA
+          </div>
+          <div className="p-4 bg-orange-100 rounded-full mb-4 group-hover:scale-110 transition">
+             <GraduationCap className="w-12 h-12 text-senja-primary" />
+          </div>
+          <h3 className="text-2xl font-bold mb-2">Masuk Siswa</h3>
+          <p className="opacity-70 text-sm text-center text-gray-600">Gunakan NISN untuk mulai belajar</p>
+          <div className="mt-4 flex justify-center w-full">
+            <div className="bg-senja-primary/10 p-2 rounded-full">
+               <ArrowRight className="w-5 h-5 animate-pulse text-senja-primary"/>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <div className="mt-12 flex flex-col items-center gap-4 animate-in fade-in duration-1000 delay-300">
+        <button 
+            onClick={handleSetup} 
+            disabled={isSeeding}
+            className="flex items-center gap-2 text-xs border border-white/30 px-4 py-2 rounded-full hover:bg-white/10 transition disabled:opacity-50"
+        >
+            {isSeeding ? <Loader2 className="w-3 h-3 animate-spin"/> : <Database className="w-3 h-3"/>}
+            Setup Database Awal (Klik Sekali Saja)
+        </button>
+        
+        {status && (
+            <div className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 animate-in slide-in-from-bottom-2 ${
+                status.type === 'success' ? 'bg-green-500/20 text-green-100' : 'bg-red-500/20 text-red-100'
+            }`}>
+                {status.type === 'success' ? <CheckCircle className="w-4 h-4"/> : <AlertCircle className="w-4 h-4"/>}
+                {status.text}
+            </div>
+        )}
+      </div>
+
+      {/* Footer Credit */}
+      <div className="mt-16 text-center text-xs text-white/60 pb-4 animate-in fade-in duration-1000 delay-500">
+          <p>Created by <span className="font-bold text-white/90">ARIYANTO RAHMAN</span></p>
+          <p className="opacity-70 mt-1">© {new Date().getFullYear()} SD Negeri 5 Bilato</p>
+      </div>
+    </div>
   );
 };
 
-export default App;
+const LoginForm = ({ role, onLogin }: { role: Role, onLogin: (u: User) => void }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    try {
+        const user = await getUserByUsername(username, role);
+        if (user && user.password === password) {
+            onLogin(user);
+        } else {
+            setError("Username atau password salah!");
+        }
+    } catch (error) {
+        console.error(error);
+        setError("Database belum di-setup atau koneksi error.");
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full animate-in zoom-in duration-300">
+        <h2 className="text-2xl font-bold text-center text-senja-dark mb-6">Login {role === Role.ADMIN ? 'Admin' : 'Wali Kelas'}</h2>
+        
+        {error && (
+            <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" /> {error}
+            </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700">Username</label>
+            <input 
+                type="text" 
+                className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-senja-primary outline-none transition" 
+                value={username} 
+                onChange={e => setUsername(e.target.value)} 
+                placeholder="Masukkan username"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700">Password</label>
+            <input 
+                type="password" 
+                className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-senja-primary outline-none transition" 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                placeholder="Masukkan password"
+            />
+          </div>
+          <button type="submit" disabled={isLoading} className="w-full bg-senja-primary text-white py-3 rounded-lg font-bold hover:bg-orange-600 transition flex justify-center items-center shadow-lg shadow-orange-200">
+            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Masuk'}
+          </button>
+        </form>
+        <button onClick={() => navigate('/')} className="block w-full text-center mt-6 text-sm text-gray-500 hover:text-gray-800 transition">Kembali ke Halaman Utama</button>
+      </div>
+    </div>
+  );
+};
+
+const StudentLoginForm = ({ onLogin }: { onLogin: (s: Student) => void }) => {
+  const [nisn, setNisn] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    try {
+        const student = await getStudentByNISN(nisn);
+        if (student) {
+            onLogin(student);
+        } else {
+            setError("NISN tidak ditemukan. Hubungi Guru.");
+        }
+    } catch (error) {
+        setError("Terjadi kesalahan koneksi.");
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen senja-gradient flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center animate-in zoom-in duration-300">
+        <GraduationCap className="w-16 h-16 mx-auto text-senja-primary mb-4" />
+        <h2 className="text-2xl font-bold text-senja-dark mb-2">Login Siswa</h2>
+        <p className="text-gray-500 mb-6">Masukkan NISN kamu untuk mulai belajar</p>
+        
+        {error && (
+            <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center justify-center gap-2">
+                <AlertCircle className="w-4 h-4" /> {error}
+            </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <input 
+            type="text" 
+            placeholder="Nomor NISN"
+            className="w-full border-2 border-orange-100 p-4 rounded-xl text-center text-xl tracking-widest font-bold text-gray-700 focus:border-senja-primary outline-none transition" 
+            value={nisn} 
+            onChange={e => setNisn(e.target.value)} 
+          />
+          <button type="submit" disabled={isLoading} className="w-full bg-senja-secondary text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition shadow-lg flex justify-center items-center">
+             {isLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : 'Mulai Petualangan!'}
+          </button>
+        </form>
+        <button onClick={() => navigate('/')} className="block w-full text-center mt-6 text-sm text-gray-400 hover:text-gray-600 transition">Kembali ke Halaman Utama</button>
+      </div>
+    </div>
+  );
+};
+
+// --- Dashboard Component ---
+const Dashboard = ({ user, role }: { user: User | Student, role: Role }) => {
+  const [studentCount, setStudentCount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      // Only fetch stats for Admin and Teacher
+      if (role === Role.STUDENT) return;
+
+      setIsLoading(true);
+      try {
+         const grade = role === Role.TEACHER ? (user as User).assignedClass : undefined;
+         const students = await getStudents(grade);
+         setStudentCount(students.length);
+      } catch (e) {
+         console.error(e);
+      } finally {
+         setIsLoading(false);
+      }
+    };
+    fetchStats();
+  }, [user, role]);
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+       {/* Header Welcome */}
+       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <h1 className="text-2xl font-bold mb-2 text-senja-dark">
+            Selamat Datang, {role === Role.STUDENT ? (user as Student).name : (user as User).fullName}!
+          </h1>
+          <p className="text-gray-600">
+            {role === Role.ADMIN ? "Panel Administrator Sekolah" :
+             role === Role.TEACHER ? `Panel Wali Kelas ${(user as User).assignedClass}` :
+             "Selamat Belajar!"}
+          </p>
+       </div>
+
+       {/* Stats Section (Only for Admin/Teacher) */}
+       {(role === Role.ADMIN || role === Role.TEACHER) && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+             <div className="bg-gradient-to-br from-orange-500 to-red-500 text-white p-6 rounded-2xl shadow-lg flex items-center justify-between transform transition hover:scale-[1.02]">
+                <div>
+                   <p className="text-orange-100 text-sm font-medium mb-1">
+                      {role === Role.ADMIN ? 'Total Seluruh Siswa' : `Siswa Kelas ${(user as User).assignedClass}`}
+                   </p>
+                   <h2 className="text-4xl font-bold tracking-tight">
+                     {isLoading ? <Loader2 className="w-8 h-8 animate-spin"/> : studentCount}
+                   </h2>
+                   <p className="text-xs text-orange-200 mt-2">Terdaftar dalam sistem</p>
+                </div>
+                <div className="p-4 bg-white/20 rounded-full backdrop-blur-sm">
+                   <Users className="w-8 h-8 text-white" />
+                </div>
+             </div>
+          </div>
+       )}
+
+       {/* Info Box */}
+        <div className="bg-gradient-to-r from-orange-50 to-purple-50 border border-senja-primary/10 p-8 rounded-xl">
+          <p className="text-lg text-gray-800 font-medium mb-2">Selamat datang di Aplikasi Literasi Digital SD Negeri 5 Bilato.</p>
+          <p className="text-gray-600">
+            {role === Role.ADMIN ? "Anda memiliki akses penuh untuk mengelola user, siswa, dan pengaturan aplikasi." : 
+             role === Role.TEACHER ? `Anda dapat mengelola materi dan siswa untuk Kelas ${(user as User).assignedClass}.` : 
+             "Selamat belajar! Pilih menu Bacaan Siswa untuk memulai."}
+          </p>
+        </div>
+    </div>
+  );
+}
+
+// --- Main App Logic ---
+
+const AppContent = () => {
+  const [user, setUser] = useState<User | Student | null>(null);
+  const [role, setRole] = useState<Role | null>(null);
+  const navigate = useNavigate();
+
+  const handleLogin = (u: User | Student, r: Role) => {
+    setUser(u);
+    setRole(r);
+    if (r === Role.STUDENT) navigate('/read');
+    else navigate('/dashboard');
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setRole(null);
+    navigate('/');
+  };
+
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/login/admin" element={<LoginForm role={Role.ADMIN} onLogin={(u) => handleLogin(u, Role.ADMIN)} />} />
+      <Route path="/login/teacher" element={<LoginForm role={Role.TEACHER} onLogin={(u) => handleLogin(u, Role.TEACHER)} />} />
+      <Route path="/login/student" element={<StudentLoginForm onLogin={(s) => handleLogin(s, Role.STUDENT)} />} />
+
+      {/* Protected Routes */}
+      {role && user ? (
+        <Route path="/*" element={
+          <Layout user={user} role={role} onLogout={handleLogout}>
+             <Routes>
+                <Route path="dashboard" element={<Dashboard user={user} role={role} />} />
+                <Route path="students" element={<StudentManagement currentUser={user as User} />} />
+                <Route path="materials" element={<MaterialManagement currentUser={user as User} />} />
+                <Route path="grading" element={<Grading currentUser={user as User} />} />
+                <Route path="read" element={role === Role.STUDENT ? <StudentReading student={user as Student} /> : <Navigate to="/dashboard"/>} />
+                
+                {role === Role.ADMIN && (
+                   <>
+                     <Route path="users" element={<UserManagement />} />
+                     <Route path="settings" element={<Settings />} />
+                   </>
+                )}
+             </Routes>
+          </Layout>
+        } />
+      ) : (
+        <Route path="*" element={<Navigate to="/" />} />
+      )}
+    </Routes>
+  );
+};
+
+export default function App() {
+  return (
+    <HashRouter>
+      <AppContent />
+    </HashRouter>
+  );
+}

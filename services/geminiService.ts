@@ -1,28 +1,18 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import { ReflectionQuestion } from "../types";
 
-// NOTE: in a real app, this should be proxied through a backend or user should input key.
-// For this demo, we assume the environment variable or a safe context.
-const apiKey = process.env.API_KEY || ''; 
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-export const generateReflectionQuestions = async (contextText: string, gradeLevel: string): Promise<string[]> => {
-  if (!apiKey) {
-    console.warn("API Key is missing for Gemini");
-    return [
-      "Apa bagian yang paling menarik dari cerita ini?",
-      "Pelajaran apa yang bisa kamu ambil?",
-      "Apakah kamu pernah mengalami hal serupa?"
-    ];
-  }
-
+export const generateReflectionQuestions = async (title: string, content: string, grade: string): Promise<ReflectionQuestion[]> => {
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    
     const prompt = `
-      Buatkan 3 pertanyaan refleksi yang menarik dan mendidik untuk siswa SD Kelas ${gradeLevel} berdasarkan teks berikut.
-      Pertanyaan harus menguji pemahaman dan mendorong pemikiran kritis sederhana.
+      Kamu adalah asisten guru SD. Buatkan 3-5 pertanyaan refleksi yang mendorong berpikir kritis untuk siswa kelas ${grade} SD.
+      Berdasarkan materi berikut:
+      Judul: "${title}"
+      Isi/Ringkasan: "${content}"
       
-      Teks Bacaan:
-      "${contextText.substring(0, 1000)}..."
+      Output harus HANYA berupa JSON array of strings. Jangan ada teks lain.
+      Contoh: ["Apa pelajaran moral dari cerita ini?", "Bagaimana perasaan tokoh utama?"]
     `;
 
     const response = await ai.models.generateContent({
@@ -31,27 +21,29 @@ export const generateReflectionQuestions = async (contextText: string, gradeLeve
       config: {
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            questions: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "List of reflection questions"
-            }
+          type: Type.ARRAY,
+          items: {
+            type: Type.STRING
           }
         }
       }
     });
 
-    const result = response.text ? JSON.parse(response.text) : { questions: [] };
-    return result.questions || [];
+    const text = response.text;
+    if (!text) return [];
+
+    const questionsArray: string[] = JSON.parse(text);
+
+    return questionsArray.map((q, index) => ({
+      id: `gen-${Date.now()}-${index}`,
+      text: q
+    }));
 
   } catch (error) {
     console.error("Gemini Error:", error);
     return [
-      "Apa yang kamu pelajari dari bacaan ini?",
-      "Bagaimana perasaanmu setelah membaca?",
-      "Tuliskan satu hal baru yang kamu ketahui."
+      { id: 'err1', text: 'Sebutkan hal menarik dari bacaan ini!' },
+      { id: 'err2', text: 'Apa pesan moral yang kamu dapatkan?' }
     ];
   }
 };
